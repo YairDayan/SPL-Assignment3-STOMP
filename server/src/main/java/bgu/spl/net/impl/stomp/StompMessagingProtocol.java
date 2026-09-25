@@ -16,8 +16,48 @@ public class StompMessagingProtocol implements MessagingProtocol<String> {
 
     @Override
     public String process(String message) {
+        StompMessage stompMessage = new StompMessage(message);
+        switch (stompMessage.getCommand()) {
+            case "CONNECT":
+                return handleConnect(stompMessage);
+            case "SUBSCRIBE":
+                return handleSubscribe(stompMessage);
+            case "UNSUBSCRIBE":
+                return handleUnsubscribe(stompMessage);
+            case "SEND":
+                return handleSend(stompMessage);
+            case "DISCONNECT":
+                return handleDisconnect(stompMessage);
+            default:
+                return null;
+        }
+    }
+
+    
+
+    private String handleDisconnect(StompMessage stompMessage) {
         // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'process'");
+        throw new UnsupportedOperationException("Unimplemented method 'handleDisconnect'");
+    }
+
+    private String handleSend(StompMessage stompMessage) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'handleSend'");
+    }
+
+    private String handleUnsubscribe(StompMessage stompMessage) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'handleUnsubscribe'");
+    }
+
+    private String handleSubscribe(StompMessage stompMessage) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'handleSubscribe'");
+    }
+
+    private String handleConnect(StompMessage stompMessage) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'handleConnect'");
     }
 
     @Override
