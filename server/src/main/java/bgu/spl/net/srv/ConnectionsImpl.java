@@ -76,4 +76,15 @@ public class ConnectionsImpl implements Connections<String> {
         channels.putIfAbsent(channel, new ConcurrentHashMap<>());
         return channels.get(channel).putIfAbsent(connectionId, subscriptionId) == null;
     }
+
+    public boolean removeSubscription(int connectionId, String subscriptionId) {
+        for (ConcurrentHashMap<Integer, String> subscribers : channels.values()) {
+            String subID = subscribers.get(connectionId);
+            if (subID != null && subID.equals(subscriptionId)) {
+                subscribers.remove(connectionId);
+                return true;
+            }
+        }
+        return false;
+    }
 }

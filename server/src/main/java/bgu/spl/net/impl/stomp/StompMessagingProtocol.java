@@ -53,8 +53,27 @@ public class StompMessagingProtocol implements MessagingProtocol<String> {
     }
 
     private String handleUnsubscribe(StompMessage stompMessage) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'handleUnsubscribe'");
+        String subscriptionId = stompMessage.getHeader("id");
+        String receipt = stompMessage.getHeader("receipt");
+
+        if (subscriptionId == null) {
+            shouldTerminate = true;
+            connectionsImpl.disconnect(connectionId);
+            return buildErrorFrame("Malformed UNSUBSCRIBE frame", receipt);
+        }
+        
+        boolean removed = connectionsImpl.removeSubscription(connectionId, subscriptionId);
+        if (!removed) {
+            shouldTerminate = true;
+            connectionsImpl.disconnect(connectionId);
+            return buildErrorFrame("Subscription not found", receipt);
+        }
+
+        if (receipt != null) {
+            return "RECEIPT\nreceipt-id:" + receipt + "\n\n\u0000";
+        }
+
+        return null;
     }
 
     private String handleSubscribe(StompMessage stompMessage) {
@@ -93,14 +112,14 @@ public class StompMessagingProtocol implements MessagingProtocol<String> {
             if (connectionsImpl.getUser(username).isConnected()) {
                 shouldTerminate = true;
                 connectionsImpl.disconnect(connectionId);
-                return "ERROR\nmessage:User already logged in\n\n\u0000";
+                return buildErrorFrame("User already logged in", null);
             }
             connectionsImpl.setUserConnected(username, true);
             return "CONNECTED\nversion:1.2\n\n\u0000";
         }
         shouldTerminate = true;
         connectionsImpl.disconnect(connectionId);
-        return "ERROR\nmessage:Wrong password\n\n\u0000";
+        return buildErrorFrame("Wrong password", null);
     }
 
     private String buildErrorFrame(String message, String receiptId) {
