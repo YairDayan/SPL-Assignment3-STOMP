@@ -87,4 +87,8 @@ public class ConnectionsImpl implements Connections<String> {
         }
         return false;
     }
+
+    public boolean isSubscribed(int connectionId, String channel) {
+        return channel != null && channels.containsKey(channel) && channels.get(channel).containsKey(connectionId);
+    }
 }
