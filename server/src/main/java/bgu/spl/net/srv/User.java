@@ -3,13 +3,13 @@ package bgu.spl.net.srv;
 public class User {
     private String username;
     private String password;
-    private String sessionId;
+    private int connectionId;
     private boolean connected;
 
-    public User(String username, String password, String sessionId) {
+    public User(String username, String password, int connectionId) {
         this.username = username;
         this.password = password;
-        this.sessionId = sessionId;
+        this.connectionId = connectionId;
     }
 
     public String getUsername() {
@@ -20,8 +20,8 @@ public class User {
         return password;
     }
     
-    public String getSessionId() {
-        return sessionId;
+    public int getConnectionId() {
+        return connectionId;
     }
 
     public boolean isConnected() {

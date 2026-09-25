@@ -26,6 +26,9 @@ public class StompEncoderDecoder implements MessageEncoderDecoder<String> {
     @Override
     public byte[] encode(String message) {
         byte[] utf8 = message.getBytes(StandardCharsets.UTF_8);
+        if (utf8.length > 0 && utf8[utf8.length - 1] == 0) {
+            return utf8;
+        }
         byte[] output = Arrays.copyOf(utf8, utf8.length + 1);
         output[utf8.length] = 0;
         return output;

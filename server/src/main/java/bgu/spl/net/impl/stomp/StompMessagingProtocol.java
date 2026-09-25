@@ -1,17 +1,24 @@
 package bgu.spl.net.impl.stomp;
 
 import bgu.spl.net.srv.Connections;
+import bgu.spl.net.srv.ConnectionsImpl;
+import bgu.spl.net.srv.User;
 import bgu.spl.net.api.MessagingProtocol;
 
 public class StompMessagingProtocol implements MessagingProtocol<String> {
     private boolean shouldTerminate = false;
     private int connectionId;
-    private Connections<String> connections;
+    private ConnectionsImpl connectionsImpl;
 
     @Override
     public void start(int connectionId, Connections<String> connections) {
         this.connectionId = connectionId;
-        this.connections = connections;
+        this.connectionsImpl = (ConnectionsImpl) connections;
+    }
+
+    @Override
+    public boolean shouldTerminate() {
+        return shouldTerminate;
     }
 
     @Override
@@ -51,17 +58,57 @@ public class StompMessagingProtocol implements MessagingProtocol<String> {
     }
 
     private String handleSubscribe(StompMessage stompMessage) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'handleSubscribe'");
+        String destination = stompMessage.getHeader("destination");
+        String subscriptionId = stompMessage.getHeader("id");
+        String receipt = stompMessage.getHeader("receipt");
+
+        if (destination == null || subscriptionId == null) {
+            shouldTerminate = true;
+            connectionsImpl.disconnect(connectionId);
+            return buildErrorFrame("Malformed SUBSCRIBE frame", receipt);
+        }
+
+        if (!connectionsImpl.addSubscription(connectionId, destination, subscriptionId)) {
+            shouldTerminate = true;
+            connectionsImpl.disconnect(connectionId);
+            return buildErrorFrame("Subscription already exists", receipt);
+        }
+
+        if (receipt != null) {
+            return "RECEIPT\nreceipt-id:" + receipt + "\n\n\u0000";
+        }
+        return null;
     }
 
     private String handleConnect(StompMessage stompMessage) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'handleConnect'");
+        String username = stompMessage.getHeader("login");
+        String password = stompMessage.getHeader("passcode");
+        if (connectionsImpl.getUser(username) == null) {
+            User user = new User(username, password, connectionId);
+            connectionsImpl.addUser(user);
+            connectionsImpl.setUserConnected(username, true);
+            return "CONNECTED\nversion:1.2\n\n\u0000";
+        }
+        if (connectionsImpl.getUser(username).getPassword().equals(password)) {
+            if (connectionsImpl.getUser(username).isConnected()) {
+                shouldTerminate = true;
+                connectionsImpl.disconnect(connectionId);
+                return "ERROR\nmessage:User already logged in\n\n\u0000";
+            }
+            connectionsImpl.setUserConnected(username, true);
+            return "CONNECTED\nversion:1.2\n\n\u0000";
+        }
+        shouldTerminate = true;
+        connectionsImpl.disconnect(connectionId);
+        return "ERROR\nmessage:Wrong password\n\n\u0000";
     }
 
-    @Override
-    public boolean shouldTerminate() {
-        return shouldTerminate;
+    private String buildErrorFrame(String message, String receiptId) {
+        String frame = "ERROR\n";
+        if (receiptId != null) {
+            frame += "receipt-id:" + receiptId + "\n";
+        }
+        frame += "message:" + message + "\n\n\u0000";
+        return frame;
     }
 }

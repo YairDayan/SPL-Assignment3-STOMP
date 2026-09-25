@@ -40,4 +40,8 @@ public class StompMessage {
     public String getBody() {
         return body;
     }
+
+    public String getHeader(String header) {
+        return headers.get(header);
+    }
 }
