@@ -1,4 +1,3 @@
-// server/src/main/java/bgu/spl/net/srv/ConnectionsImpl.java
 package bgu.spl.net.srv;
 
 import java.util.Map;

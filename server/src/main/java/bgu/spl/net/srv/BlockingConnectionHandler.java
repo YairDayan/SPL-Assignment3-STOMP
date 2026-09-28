@@ -1,4 +1,3 @@
-// server/src/main/java/bgu/spl/net/srv/BlockingConnectionHandler.java
 package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
