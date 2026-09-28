@@ -95,3 +95,22 @@ fabric.properties
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+# --- Project-specific local/dev artifacts ---
+# Dev container config is local to each machine
+.devcontainer/
+
+# VS Code workspace settings are user/machine-specific
+.vscode/
+
+# macOS metadata files
+.DS_Store
+**/.DS_Store
+
+# IntelliJ module files
+*.iml
+
+# Build outputs and compiled binaries
+server/target/
+client/bin/
+*.o
