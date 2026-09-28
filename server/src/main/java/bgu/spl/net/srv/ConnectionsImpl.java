@@ -1,11 +1,12 @@
+// server/src/main/java/bgu/spl/net/srv/ConnectionsImpl.java
 package bgu.spl.net.srv;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ConnectionsImpl implements Connections<String> {
+public class ConnectionsImpl<T> implements Connections<T> {
 
-    private final ConcurrentHashMap<Integer, ConnectionHandler<String>> clients;
+    private final ConcurrentHashMap<Integer, ConnectionHandler<T>> clients;
     private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, String>> channels;
     private final ConcurrentHashMap<String, User> users;
 
@@ -16,8 +17,8 @@ public class ConnectionsImpl implements Connections<String> {
     }
 
     @Override
-    public boolean send(int connectionId, String msg) {
-        ConnectionHandler<String> handler = clients.get(connectionId);
+    public boolean send(int connectionId, T msg) {
+        ConnectionHandler<T> handler = clients.get(connectionId);
         if (handler == null) {
             return false;
         }
@@ -26,7 +27,8 @@ public class ConnectionsImpl implements Connections<String> {
     }
 
     @Override
-    public void send(String channel, String msg) {
+    @SuppressWarnings("unchecked")
+    public void send(String channel, T msg) {
         ConcurrentHashMap<Integer, String> subscribers = channels.get(channel);
         if (subscribers == null) {
             return;
@@ -38,8 +40,12 @@ public class ConnectionsImpl implements Connections<String> {
             if (subId == null) {
                 continue;
             }
-            String response = msg.replace("%%SUB_ID%%", subId);
-            send(clientId, response);
+
+            T payload = msg;
+            if (msg instanceof String) {
+                payload = (T) ((String) msg).replace("%%SUB_ID%%", subId);
+            }
+            send(clientId, payload);
         }
     }
 
@@ -105,7 +111,7 @@ public class ConnectionsImpl implements Connections<String> {
         return subscribers != null && subscribers.containsKey(connectionId);
     }
 
-    public void addClient(int connectionId, ConnectionHandler<String> client) {
+    public void addClient(int connectionId, ConnectionHandler<T> client) {
         clients.put(connectionId, client);
     }
 }
