@@ -1,4 +1,3 @@
-// server/src/main/java/bgu/spl/net/impl/echo/EchoProtocol.java
 package bgu.spl.net.impl.echo;
 
 import bgu.spl.net.api.MessagingProtocol;

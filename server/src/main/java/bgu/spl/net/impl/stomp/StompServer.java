@@ -6,14 +6,15 @@ public class StompServer {
 
     public static void main(String[] args) {
         if (args.length != 2) {
-            System.out.println("Usage: <prot> <tpc|reactor>");
+            System.out.println("Usage: <port> <tpc|reactor>");
             return;
         }
+
         int port;
         try {
             port = Integer.parseInt(args[0]);
         } catch (NumberFormatException e) {
-            System.out.println("Invalid port number" + args[0]);
+            System.out.println("Invalid port number: " + args[0]);
             return;
         }
 
@@ -21,20 +22,19 @@ public class StompServer {
 
         if ("tpc".equals(mode)) {
             Server.threadPerClient(
-                port,
-                StompMessagingProtocol::new,
-                StompEncoderDecoder::new
+                    port,
+                    StompMessagingProtocol::new,
+                    StompEncoderDecoder::new
             ).serve();
         } else if ("reactor".equals(mode)) {
             Server.reactor(
-                Runtime.getRuntime().availableProcessors(),
-                port,
-                StompMessagingProtocol::new,
-                StompEncoderDecoder::new
+                    Runtime.getRuntime().availableProcessors(),
+                    port,
+                    StompMessagingProtocol::new,
+                    StompEncoderDecoder::new
             ).serve();
         } else {
-            System.out.println("Invalid mode: " + mode);
-            return;
+            System.out.println("Invalid mode: " + mode + " (expected tpc/reactor)");
         }
     }
 }
