@@ -22,7 +22,6 @@ public abstract class BaseServer<T> implements Server<T> {
             int port,
             Supplier<MessagingProtocol<T>> protocolFactory,
             Supplier<MessageEncoderDecoder<T>> encdecFactory) {
-
         this.port = port;
         this.protocolFactory = protocolFactory;
         this.encdecFactory = encdecFactory;
@@ -39,13 +38,16 @@ public abstract class BaseServer<T> implements Server<T> {
                 Socket clientSock = serverSock.accept();
 
                 MessagingProtocol<T> protocol = protocolFactory.get();
+                int connectionId = connectionIds.getAndIncrement();
+
                 BlockingConnectionHandler<T> handler = new BlockingConnectionHandler<>(
                         clientSock,
                         encdecFactory.get(),
-                        protocol
+                        protocol,
+                        connectionId,
+                        connections
                 );
 
-                int connectionId = connectionIds.getAndIncrement();
                 connections.addClient(connectionId, handler);
                 protocol.start(connectionId, connections);
 

@@ -4,6 +4,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ConnectionsImpl<T> implements Connections<T> {
+    public enum LoginResult {
+        CONNECTED,
+        ALREADY_LOGGED_IN,
+        WRONG_PASSWORD
+    }
 
     private final ConcurrentHashMap<Integer, ConnectionHandler<T>> clients;
     private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, String>> channels;
@@ -112,5 +117,27 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     public void addClient(int connectionId, ConnectionHandler<T> client) {
         clients.put(connectionId, client);
+    }
+
+    public synchronized LoginResult loginUser(String username, String password, int connectionId) {
+        User existing = users.get(username);
+        if (existing == null) {
+            User newUser = new User(username, password, connectionId);
+            newUser.setConnected(true);
+            users.put(username, newUser);
+            return LoginResult.CONNECTED;
+        }
+
+        if (!existing.getPassword().equals(password)) {
+            return LoginResult.WRONG_PASSWORD;
+        }
+
+        if (existing.isConnected()) {
+            return LoginResult.ALREADY_LOGGED_IN;
+        }
+
+        existing.setConnectionId(connectionId);
+        existing.setConnected(true);
+        return LoginResult.CONNECTED;
     }
 }

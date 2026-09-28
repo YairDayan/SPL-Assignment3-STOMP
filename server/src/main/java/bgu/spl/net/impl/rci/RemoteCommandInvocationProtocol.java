@@ -1,4 +1,3 @@
-// server/src/main/java/bgu/spl/net/impl/rci/RemoteCommandInvocationProtocol.java
 package bgu.spl.net.impl.rci;
 
 import bgu.spl.net.api.MessagingProtocol;

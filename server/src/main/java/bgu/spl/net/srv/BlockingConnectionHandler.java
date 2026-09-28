@@ -7,6 +7,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler<T> {
 
@@ -15,12 +16,23 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     private final Socket sock;
     private final BufferedInputStream in;
     private final BufferedOutputStream out;
+    private final Connections<T> connections;
+    private final int connectionId;
+
+    private final AtomicBoolean disconnectedNotified = new AtomicBoolean(false);
     private volatile boolean connected = true;
 
-    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, MessagingProtocol<T> protocol) {
+    public BlockingConnectionHandler(
+            Socket sock,
+            MessageEncoderDecoder<T> reader,
+            MessagingProtocol<T> protocol,
+            int connectionId,
+            Connections<T> connections) {
         this.sock = sock;
         this.encdec = reader;
         this.protocol = protocol;
+        this.connectionId = connectionId;
+        this.connections = connections;
         try {
             this.in = new BufferedInputStream(sock.getInputStream());
             this.out = new BufferedOutputStream(sock.getOutputStream());
@@ -42,8 +54,10 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
                     }
                 }
             }
-        } catch (IOException ex) {
+        } catch (IOException ignored) {
+        } finally {
             connected = false;
+            notifyDisconnectedOnce();
         }
     }
 
@@ -51,13 +65,12 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     public void close() throws IOException {
         connected = false;
         sock.close();
+        notifyDisconnectedOnce();
     }
 
     @Override
     public void send(T msg) {
-        if (!connected) {
-            return;
-        }
+        if (!connected) return;
         synchronized (out) {
             try {
                 out.write(encdec.encode(msg));
@@ -69,6 +82,12 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
                 } catch (IOException ignored) {
                 }
             }
+        }
+    }
+
+    private void notifyDisconnectedOnce() {
+        if (disconnectedNotified.compareAndSet(false, true)) {
+            connections.disconnect(connectionId);
         }
     }
 }

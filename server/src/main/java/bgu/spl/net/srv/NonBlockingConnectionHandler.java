@@ -9,6 +9,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
 
@@ -20,16 +21,23 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     private final Queue<ByteBuffer> writeQueue = new ConcurrentLinkedQueue<>();
     private final SocketChannel chan;
     private final Reactor<T> reactor;
+    private final Connections<T> connections;
+    private final int connectionId;
+    private final AtomicBoolean disconnectedNotified = new AtomicBoolean(false);
 
     public NonBlockingConnectionHandler(
             MessageEncoderDecoder<T> reader,
             MessagingProtocol<T> protocol,
             SocketChannel chan,
-            Reactor<T> reactor) {
+            Reactor<T> reactor,
+            int connectionId,
+            Connections<T> connections) {
         this.chan = chan;
         this.encdec = reader;
         this.protocol = protocol;
         this.reactor = reactor;
+        this.connectionId = connectionId;
+        this.connections = connections;
     }
 
     public Runnable continueRead() {
@@ -37,7 +45,7 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         boolean success = false;
         try {
             success = chan.read(buf) != -1;
-        } catch (IOException ex) {
+        } catch (IOException ignored) {
             close();
         }
 
@@ -70,11 +78,9 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         try {
             chan.close();
         } catch (IOException ignored) {
+        } finally {
+            notifyDisconnectedOnce();
         }
-    }
-
-    public boolean isClosed() {
-        return !chan.isOpen();
     }
 
     public void continueWrite() {
@@ -82,9 +88,7 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
             try {
                 ByteBuffer top = writeQueue.peek();
                 chan.write(top);
-                if (top.hasRemaining()) {
-                    return;
-                }
+                if (top.hasRemaining()) return;
                 writeQueue.remove();
             } catch (IOException ex) {
                 close();
@@ -93,19 +97,20 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         }
 
         if (writeQueue.isEmpty()) {
-            if (protocol.shouldTerminate()) {
-                close();
-            } else {
-                reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
-            }
+            if (protocol.shouldTerminate()) close();
+            else reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
         }
+    }
+
+    @Override
+    public void send(T msg) {
+        writeQueue.add(ByteBuffer.wrap(encdec.encode(msg)));
+        reactor.updateInterestedOps(chan, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
     }
 
     private static ByteBuffer leaseBuffer() {
         ByteBuffer buff = BUFFER_POOL.poll();
-        if (buff == null) {
-            return ByteBuffer.allocateDirect(BUFFER_ALLOCATION_SIZE);
-        }
+        if (buff == null) return ByteBuffer.allocateDirect(BUFFER_ALLOCATION_SIZE);
         buff.clear();
         return buff;
     }
@@ -114,9 +119,9 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         BUFFER_POOL.add(buff);
     }
 
-    @Override
-    public void send(T msg) {
-        writeQueue.add(ByteBuffer.wrap(encdec.encode(msg)));
-        reactor.updateInterestedOps(chan, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+    private void notifyDisconnectedOnce() {
+        if (disconnectedNotified.compareAndSet(false, true)) {
+            connections.disconnect(connectionId);
+        }
     }
 }

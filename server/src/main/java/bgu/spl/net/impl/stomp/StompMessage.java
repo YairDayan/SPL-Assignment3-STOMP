@@ -9,24 +9,34 @@ public class StompMessage {
     private String body;
 
     public StompMessage(String message) {
+        if (message == null || message.isEmpty()) {
+            throw new IllegalArgumentException("Frame is empty");
+        }
         message = message.replace("\r", "");
         String[] lines = message.split("\n");
+        if (lines.length == 0 || lines[0].isEmpty()) {
+            throw new IllegalArgumentException("Missing command");
+        }
         this.command = lines[0];
         this.headers = new HashMap<>();
-        this.body = "";
+        StringBuilder bodyBuilder = new StringBuilder();
         boolean body = false;
-        for (int i =1; i<lines.length; i++) {
+        for (int i = 1; i < lines.length; i++) {
             if (lines[i].isEmpty()) {
                 body = true;
                 continue;
             }
             if (body) {
-                this.body += lines[i] + "\n";
+                bodyBuilder.append(lines[i]).append("\n");
             } else {
                 String[] header = lines[i].split(":", 2);
+                if (header.length < 2 || header[0].isEmpty()) {
+                    throw new IllegalArgumentException("Malformed header");
+                }
                 this.headers.put(header[0], header[1]);
             }
         }
+        this.body = bodyBuilder.toString();
     }
 
     public String getCommand() {

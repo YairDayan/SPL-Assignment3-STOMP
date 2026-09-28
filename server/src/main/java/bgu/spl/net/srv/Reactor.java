@@ -94,20 +94,23 @@ public class Reactor<T> implements Server<T> {
             selector.wakeup();
         }
     }
-
+    
     private void handleAccept(ServerSocketChannel serverChan, Selector selector) throws IOException {
         SocketChannel clientChan = serverChan.accept();
         clientChan.configureBlocking(false);
 
         MessagingProtocol<T> protocol = protocolFactory.get();
+        int connectionId = connectionIds.getAndIncrement();
+
         NonBlockingConnectionHandler<T> handler = new NonBlockingConnectionHandler<>(
                 readerFactory.get(),
                 protocol,
                 clientChan,
-                this
+                this,
+                connectionId,
+                connections
         );
 
-        int connectionId = connectionIds.getAndIncrement();
         connections.addClient(connectionId, handler);
         protocol.start(connectionId, connections);
 

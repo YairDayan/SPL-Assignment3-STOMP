@@ -3,7 +3,6 @@ package bgu.spl.net.impl.stomp;
 import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.srv.Connections;
 import bgu.spl.net.srv.ConnectionsImpl;
-import bgu.spl.net.srv.User;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -26,7 +25,15 @@ public class StompMessagingProtocol implements MessagingProtocol<String> {
 
     @Override
     public String process(String message) {
-        StompMessage stompMessage = new StompMessage(message);
+        StompMessage stompMessage;
+        try {
+            stompMessage = new StompMessage(message);
+        } catch (IllegalArgumentException e) {
+            shouldTerminate = true;
+            connectionsImpl.disconnect(connectionId);
+            return buildErrorFrame("Malformed frame", null);
+        }
+
         switch (stompMessage.getCommand()) {
             case "CONNECT":
                 return handleConnect(stompMessage);
@@ -147,35 +154,29 @@ public class StompMessagingProtocol implements MessagingProtocol<String> {
     private String handleConnect(StompMessage stompMessage) {
         String username = stompMessage.getHeader("login");
         String password = stompMessage.getHeader("passcode");
+        String receipt = stompMessage.getHeader("receipt");
 
         if (username == null || password == null) {
             shouldTerminate = true;
             connectionsImpl.disconnect(connectionId);
-            return buildErrorFrame("Malformed CONNECT frame", stompMessage.getHeader("receipt"));
+            return buildErrorFrame("Malformed CONNECT frame", receipt);
         }
 
-        User existing = connectionsImpl.getUser(username);
-        if (existing == null) {
-            User user = new User(username, password, connectionId);
-            connectionsImpl.addUser(user);
-            connectionsImpl.setUserConnected(username, true);
-            return "CONNECTED\nversion:1.2\n\n\u0000";
-        }
-
-        if (existing.getPassword().equals(password)) {
-            if (existing.isConnected()) {
-                shouldTerminate = true;
-                connectionsImpl.disconnect(connectionId);
-                return buildErrorFrame("User already logged in", null);
+        ConnectionsImpl.LoginResult result = connectionsImpl.loginUser(username, password, connectionId);
+        if (result == ConnectionsImpl.LoginResult.CONNECTED) {
+            String connectedFrame = "CONNECTED\nversion:1.2\n\n\u0000";
+            if (receipt != null) {
+                return connectedFrame + "RECEIPT\nreceipt-id:" + receipt + "\n\n\u0000";
             }
-            existing.setConnectionId(connectionId);
-            connectionsImpl.setUserConnected(username, true);
-            return "CONNECTED\nversion:1.2\n\n\u0000";
+            return connectedFrame;
         }
 
         shouldTerminate = true;
         connectionsImpl.disconnect(connectionId);
-        return buildErrorFrame("Wrong password", null);
+        if (result == ConnectionsImpl.LoginResult.ALREADY_LOGGED_IN) {
+            return buildErrorFrame("User already logged in", receipt);
+        }
+        return buildErrorFrame("Wrong password", receipt);
     }
 
     private String buildErrorFrame(String message, String receiptId) {
