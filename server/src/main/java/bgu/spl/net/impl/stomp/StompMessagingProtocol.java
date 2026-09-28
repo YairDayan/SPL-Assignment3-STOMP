@@ -159,6 +159,7 @@ public class StompMessagingProtocol implements MessagingProtocol<String> {
                 connectionsImpl.disconnect(connectionId);
                 return buildErrorFrame("User already logged in", null);
             }
+            connectionsImpl.getUser(username).setConnectionId(connectionId);
             connectionsImpl.setUserConnected(username, true);
             return "CONNECTED\nversion:1.2\n\n\u0000";
         }

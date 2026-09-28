@@ -24,6 +24,10 @@ public class User {
         return connectionId;
     }
 
+    public void setConnectionId(int connectionId) {
+        this.connectionId = connectionId;
+    }
+
     public boolean isConnected() {
         return connected;
     }

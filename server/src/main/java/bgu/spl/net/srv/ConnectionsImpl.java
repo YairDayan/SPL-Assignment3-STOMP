@@ -91,4 +91,8 @@ public class ConnectionsImpl implements Connections<String> {
     public boolean isSubscribed(int connectionId, String channel) {
         return channel != null && channels.containsKey(channel) && channels.get(channel).containsKey(connectionId);
     }
+
+    public void addClient(int connectionId, ConnectionHandler<String> client) {
+        clients.put(connectionId, client);
+    }
 }
