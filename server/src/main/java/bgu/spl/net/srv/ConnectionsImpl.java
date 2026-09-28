@@ -1,12 +1,13 @@
 package bgu.spl.net.srv;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ConnectionsImpl implements Connections<String> {
 
-    private ConcurrentHashMap<Integer, ConnectionHandler<String>> clients;
-    private ConcurrentHashMap<String, ConcurrentHashMap<Integer, String>> channels;
-    private ConcurrentHashMap<String, User> users;
+    private final ConcurrentHashMap<Integer, ConnectionHandler<String>> clients;
+    private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, String>> channels;
+    private final ConcurrentHashMap<String, User> users;
 
     public ConnectionsImpl() {
         this.clients = new ConcurrentHashMap<>();
@@ -16,39 +17,44 @@ public class ConnectionsImpl implements Connections<String> {
 
     @Override
     public boolean send(int connectionId, String msg) {
-        if (clients.containsKey(connectionId)) {
-            clients.get(connectionId).send(msg);
-            return true;
+        ConnectionHandler<String> handler = clients.get(connectionId);
+        if (handler == null) {
+            return false;
         }
-        return false;
+        handler.send(msg);
+        return true;
     }
 
     @Override
     public void send(String channel, String msg) {
-        if (channels.containsKey(channel)) {
-            for (Integer clientId : channels.get(channel).keySet()) {
-                String subID = channels.get(channel).get(clientId);
-                String response = msg.replace("%%SUB_ID%%", subID);
-                send(clientId, response);
+        ConcurrentHashMap<Integer, String> subscribers = channels.get(channel);
+        if (subscribers == null) {
+            return;
+        }
 
+        for (Map.Entry<Integer, String> entry : subscribers.entrySet()) {
+            Integer clientId = entry.getKey();
+            String subId = entry.getValue();
+            if (subId == null) {
+                continue;
             }
+            String response = msg.replace("%%SUB_ID%%", subId);
+            send(clientId, response);
         }
     }
 
     @Override
     public void disconnect(int connectionId) {
-        if (clients.containsKey(connectionId)) {
-            clients.remove(connectionId);
-            for (User user : users.values()) {
-                if (user.getConnectionId() == connectionId) {
-                    user.setConnected(false);
-                }
+        clients.remove(connectionId);
+
+        for (User user : users.values()) {
+            if (user.getConnectionId() == connectionId) {
+                user.setConnected(false);
             }
         }
-        for (String channel : channels.keySet()) {
-            if (channels.get(channel).containsKey(connectionId)) {
-                channels.get(channel).remove(connectionId);
-            }
+
+        for (ConcurrentHashMap<Integer, String> subscribers : channels.values()) {
+            subscribers.remove(connectionId);
         }
     }
 
@@ -65,23 +71,26 @@ public class ConnectionsImpl implements Connections<String> {
     }
 
     public boolean isUserConnected(String username) {
-        return users.get(username).isConnected();
+        User user = users.get(username);
+        return user != null && user.isConnected();
     }
 
     public void setUserConnected(String username, boolean connected) {
-        users.get(username).setConnected(connected);
+        users.computeIfPresent(username, (u, user) -> {
+            user.setConnected(connected);
+            return user;
+        });
     }
 
     public boolean addSubscription(int connectionId, String channel, String subscriptionId) {
-        channels.putIfAbsent(channel, new ConcurrentHashMap<>());
-        return channels.get(channel).putIfAbsent(connectionId, subscriptionId) == null;
+        ConcurrentHashMap<Integer, String> subscribers =
+                channels.computeIfAbsent(channel, k -> new ConcurrentHashMap<>());
+        return subscribers.putIfAbsent(connectionId, subscriptionId) == null;
     }
 
     public boolean removeSubscription(int connectionId, String subscriptionId) {
         for (ConcurrentHashMap<Integer, String> subscribers : channels.values()) {
-            String subID = subscribers.get(connectionId);
-            if (subID != null && subID.equals(subscriptionId)) {
-                subscribers.remove(connectionId);
+            if (subscribers.remove(connectionId, subscriptionId)) {
                 return true;
             }
         }
@@ -89,7 +98,11 @@ public class ConnectionsImpl implements Connections<String> {
     }
 
     public boolean isSubscribed(int connectionId, String channel) {
-        return channel != null && channels.containsKey(channel) && channels.get(channel).containsKey(connectionId);
+        if (channel == null) {
+            return false;
+        }
+        ConcurrentHashMap<Integer, String> subscribers = channels.get(channel);
+        return subscribers != null && subscribers.containsKey(connectionId);
     }
 
     public void addClient(int connectionId, ConnectionHandler<String> client) {
