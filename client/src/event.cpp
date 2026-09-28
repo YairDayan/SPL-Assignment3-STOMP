@@ -1,14 +1,16 @@
 #include "../include/event.h"
 #include "../include/json.hpp"
-#include <iostream>
 #include <fstream>
 #include <string>
 #include <map>
 #include <vector>
 #include <sstream>
 #include <cstring>
+#include <algorithm>
+#include <cctype>
+#include <ctime>
+#include <stdexcept>
 
-#include "../include/keyboardInput.h"
 
 using namespace std;
 using json = nlohmann::json;
@@ -22,6 +24,12 @@ Event::Event(std::string channel_name, std::string city, std::string name, int d
 
 Event::~Event()
 {
+}
+
+static void split_str(const std::string& input, char delim, std::vector<std::string>& out) {
+    std::stringstream ss(input);
+    std::string part;
+    while (std::getline(ss, part, delim)) out.push_back(part);
 }
 
 void Event::setEventOwnerUser(std::string setEventOwnerUser) {
@@ -114,6 +122,46 @@ Event::Event(const std::string &frame_body): channel_name(""), city(""),
     general_information = general_information_from_string;
 }
 
+static std::string trim_copy(const std::string& s) {
+    size_t start = 0;
+    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) start++;
+    size_t end = s.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) end--;
+    return s.substr(start, end - start);
+}
+static bool parseDateTimeFlexible(const std::string& raw, int& outEpoch) {
+    std::string s = trim_copy(raw);
+    if (s.empty()) return false;
+    // Case 1: already epoch (e.g. "1762966800")
+    bool allDigits = std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isdigit(c); });
+    if (allDigits) {
+        try {
+            outEpoch = std::stoi(s);
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+    // Case 2: assignment file format "DD/MM/YY HH:MM" or "DD/MM/YYYY HH:MM"
+    int dd = 0, mm = 0, yy = 0, hh = 0, min = 0;
+    if (std::sscanf(s.c_str(), "%d/%d/%d %d:%d", &dd, &mm, &yy, &hh, &min) != 5) {
+        return false;
+    }
+    if (yy < 100) yy += 2000;
+    std::tm tmVal{};
+    tmVal.tm_mday = dd;
+    tmVal.tm_mon = mm - 1;
+    tmVal.tm_year = yy - 1900;
+    tmVal.tm_hour = hh;
+    tmVal.tm_min = min;
+    tmVal.tm_sec = 0;
+    tmVal.tm_isdst = -1; // let system determine DST
+    std::time_t t = std::mktime(&tmVal);
+    if (t == static_cast<std::time_t>(-1)) return false;
+    outEpoch = static_cast<int>(t);
+    return true;
+}
+
 names_and_events parseEventsFile(std::string json_path)
 {
     std::ifstream f(json_path);
@@ -127,7 +175,17 @@ names_and_events parseEventsFile(std::string json_path)
     {
         std::string name = event["event_name"];
         std::string city = event["city"];
-        int date_time = event["date_time"];
+        int date_time = 0;
+        if (event["date_time"].is_number_integer()) {
+            date_time = event["date_time"].get<int>();
+        } else if (event["date_time"].is_string()) {
+            std::string dt = event["date_time"].get<std::string>();
+            if (!parseDateTimeFlexible(dt, date_time)) {
+                throw std::runtime_error("Invalid date_time format in events file: " + dt);
+            }
+        } else {
+            throw std::runtime_error("Unsupported date_time type in events file");
+        }
         std::string description = event["description"];
         std::map<std::string, std::string> general_information;
         for (auto &update : event["general_information"].items())

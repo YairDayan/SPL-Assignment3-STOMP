@@ -1,0 +1,25 @@
+{
+  "channel_name": "police",
+  "events": [
+    {
+      "event_name": "Grand Theft Auto",
+      "city": "Liberty City",
+      "date_time": 1762966800,
+      "description": "Pink Lampadati Felon with license plate \"STOL3N1\".",
+      "general_information": {
+        "active": true,
+        "forces_arrival_at_scene": false
+      }
+    },
+    {
+      "event_name": "Vandalism",
+      "city": "Los Alamos",
+      "date_time": 1773279900,
+      "description": "Multiple cars were spray-painted in Oak Drive neighborhood.",
+      "general_information": {
+        "active": false,
+        "forces_arrival_at_scene": false
+      }
+    }
+  ]
+}
