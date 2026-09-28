@@ -1,11 +1,18 @@
+// server/src/main/java/bgu/spl/net/impl/echo/EchoProtocol.java
 package bgu.spl.net.impl.echo;
 
 import bgu.spl.net.api.MessagingProtocol;
+import bgu.spl.net.srv.Connections;
+
 import java.time.LocalDateTime;
 
 public class EchoProtocol implements MessagingProtocol<String> {
 
     private boolean shouldTerminate = false;
+
+    @Override
+    public void start(int connectionId, Connections<String> connections) {
+    }
 
     @Override
     public String process(String msg) {
