@@ -11,7 +11,8 @@ import java.util.function.Supplier;
 
 /**
  * A server that accepts clients on a blocking server socket and creates a
- * BlockingConnectionHandler for each one. Subclasses decide how each handler is run.
+ * BlockingConnectionHandler for each one. Subclasses decide how each handler
+ * is run.
  *
  * @param <T> the type of message handled
  */
@@ -25,6 +26,8 @@ public abstract class BaseServer<T> implements Server<T> {
     private ServerSocket sock;
 
     /**
+     * Creates a server that is not yet listening; call serve to start it.
+     *
      * @param port            the port to listen on
      * @param protocolFactory creates a new protocol for each client
      * @param encdecFactory   creates a new encoder-decoder for each client
@@ -40,9 +43,10 @@ public abstract class BaseServer<T> implements Server<T> {
     }
 
     /**
-     * Accepts clients until the thread is interrupted or the server socket is closed.
-     * Each client is given a unique connection id and registered in the connections, and its
-     * protocol is started before its handler begins running.
+     * Accepts clients until the thread is interrupted or the server socket is
+     * closed. Each client is given a unique connection id and registered in
+     * the connections, and its protocol is started before its handler begins
+     * running.
      */
     @Override
     public void serve() {

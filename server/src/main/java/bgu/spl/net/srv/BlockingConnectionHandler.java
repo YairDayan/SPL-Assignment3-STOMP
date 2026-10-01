@@ -11,8 +11,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Handles a single client in the thread-per-client server.
- * Runs on its own thread, reading bytes from the socket and passing complete messages to the
- * protocol. Messages to the client are written by send, which may be called from other threads.
+ * Runs on its own thread, reading bytes from the socket and passing complete
+ * messages to the protocol. Messages to the client are written by send, which
+ * may be called from other threads.
  *
  * @param <T> the type of message handled
  */
@@ -30,6 +31,10 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     private volatile boolean connected = true;
 
     /**
+     * Creates a handler for a newly accepted client. The socket's streams are
+     * opened here rather than in run, since other clients may send to this
+     * client before its thread starts.
+     *
      * @param sock         the client's socket
      * @param reader       the encoder-decoder for this client
      * @param protocol     the protocol for this client
@@ -57,8 +62,9 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     }
 
     /**
-     * Reads from the socket until the client disconnects or the protocol asks to terminate,
-     * then closes the socket and removes the client from the connections.
+     * Reads from the socket until the client disconnects or the protocol asks
+     * to terminate, then closes the socket and removes the client from the
+     * connections.
      */
     @Override
     public void run() {
@@ -90,14 +96,16 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     }
 
     /**
-     * Encodes and writes a message to the client. Does nothing if the client is no longer
-     * connected; a write failure closes the connection.
+     * Encodes and writes a message to the client. Synchronized so messages
+     * sent from different threads are not interleaved. Does nothing if the
+     * client is no longer connected; a write failure closes the connection.
      *
      * @param msg the message to send
      */
     @Override
     public void send(T msg) {
-        if (!connected) return;
+        if (!connected)
+            return;
         synchronized (out) {
             try {
                 out.write(encdec.encode(msg));

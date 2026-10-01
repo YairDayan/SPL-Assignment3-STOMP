@@ -7,12 +7,20 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Thread-safe implementation of Connections.
- * Holds the connection handler of every active client and the subscribers of every channel.
+ * Holds the connection handler of every active client and the subscribers of
+ * every channel. It knows nothing about the protocol, so any protocol can use
+ * it.
  *
  * @param <T> the type of message sent to clients
  */
 public class ConnectionsImpl<T> implements Connections<T> {
+    /** Maps each active client's connection id to its connection handler. */
     private final ConcurrentHashMap<Integer, ConnectionHandler<T>> clients;
+
+    /**
+     * Maps each channel to its subscribers; each subscriber maps its
+     * connection id to the subscription id it chose for that channel.
+     */
     private final ConcurrentHashMap<String, ConcurrentHashMap<Integer, String>> channels;
 
     /**
@@ -85,8 +93,8 @@ public class ConnectionsImpl<T> implements Connections<T> {
                 return false;
             }
         }
-        ConcurrentHashMap<Integer, String> subscribers =
-                channels.computeIfAbsent(channel, k -> new ConcurrentHashMap<>());
+        ConcurrentHashMap<Integer, String> subscribers = channels.computeIfAbsent(channel,
+                k -> new ConcurrentHashMap<>());
         return subscribers.putIfAbsent(connectionId, subscriptionId) == null;
     }
 

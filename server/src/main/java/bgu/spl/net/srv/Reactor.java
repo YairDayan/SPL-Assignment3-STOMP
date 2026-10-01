@@ -16,8 +16,8 @@ import java.util.function.Supplier;
 
 /**
  * A server that handles all clients with a single selector thread.
- * The selector thread accepts clients and does the socket I/O, while decoding and processing
- * messages is done by a pool of worker threads.
+ * The selector thread accepts clients and does the socket I/O, while decoding
+ * and processing messages is done by a pool of worker threads.
  *
  * @param <T> the type of message handled
  */
@@ -27,14 +27,22 @@ public class Reactor<T> implements Server<T> {
     private final Supplier<StompMessagingProtocol<T>> protocolFactory;
     private final Supplier<MessageEncoderDecoder<T>> readerFactory;
     private final ActorThreadPool pool;
+
+    /** The active clients, shared by all the protocols. */
     private final ConnectionsImpl<T> connections = new ConnectionsImpl<>();
+
+    /** Gives each new client a unique connection id. */
     private final AtomicInteger connectionIds = new AtomicInteger(0);
 
     private Selector selector;
     private Thread selectorThread;
+
+    /** Tasks from other threads that must run on the selector thread. */
     private final ConcurrentLinkedQueue<Runnable> selectorTasks = new ConcurrentLinkedQueue<>();
 
     /**
+     * Creates a reactor server.
+     *
      * @param numThreads      the number of worker threads
      * @param port            the port to listen on
      * @param protocolFactory creates a new protocol for each client
@@ -53,8 +61,8 @@ public class Reactor<T> implements Server<T> {
     }
 
     /**
-     * Runs the selector loop until the thread is interrupted or the selector is closed,
-     * then shuts down the worker pool.
+     * Runs the selector loop until the thread is interrupted or the selector is
+     * closed, then shuts down the worker pool.
      */
     @Override
     public void serve() {
@@ -95,8 +103,8 @@ public class Reactor<T> implements Server<T> {
 
     /**
      * Changes the operations the selector waits for on a channel.
-     * Selection keys may only be changed by the selector thread, so a call from another thread
-     * is queued and the selector is woken up to run it.
+     * Selection keys may only be changed by the selector thread, so a call from
+     * another thread is queued and the selector is woken up to run it.
      *
      * @param chan the client's channel
      * @param ops  the new interest set
@@ -121,9 +129,9 @@ public class Reactor<T> implements Server<T> {
     }
 
     /**
-     * Accepts a new client, gives it a unique connection id, registers it in the connections
-     * and starts its protocol before registering it for reading, so start completes before
-     * any call to process.
+     * Accepts a new client, gives it a unique connection id, adds it to the
+     * connections and starts its protocol before registering it for reading,
+     * so start completes before any call to process.
      *
      * @param serverChan the server channel
      * @param selector   the selector to register the client with
@@ -152,7 +160,8 @@ public class Reactor<T> implements Server<T> {
 
     /**
      * Handles a client's channel that is ready for reading and/or writing.
-     * Read data is processed by the worker pool; writing is done on this thread.
+     * Read data is processed by the worker pool; writing is done on this
+     * thread.
      *
      * @param key the client's selection key
      */

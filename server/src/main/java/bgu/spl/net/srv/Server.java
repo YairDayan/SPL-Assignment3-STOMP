@@ -22,8 +22,8 @@ public interface Server<T> extends Closeable {
      * Creates a server that handles each client on its own thread.
      *
      * @param port                  the port for the server socket
-     * @param protocolFactory       creates a new StompMessagingProtocol for each client
-     * @param encoderDecoderFactory creates a new MessageEncoderDecoder for each client
+     * @param protocolFactory       creates a new protocol for each client
+     * @param encoderDecoderFactory creates a new encoder-decoder for each client
      * @param <T>                   the type of message handled
      * @return a new thread-per-client server
      */
@@ -44,10 +44,10 @@ public interface Server<T> extends Closeable {
     /**
      * Creates a server that uses the reactor pattern.
      *
-     * @param nthreads              the number of threads available for protocol processing
+     * @param nthreads              the number of worker threads
      * @param port                  the port for the server socket
-     * @param protocolFactory       creates a new StompMessagingProtocol for each client
-     * @param encoderDecoderFactory creates a new MessageEncoderDecoder for each client
+     * @param protocolFactory       creates a new protocol for each client
+     * @param encoderDecoderFactory creates a new encoder-decoder for each client
      * @param <T>                   the type of message handled
      * @return a new reactor server
      */

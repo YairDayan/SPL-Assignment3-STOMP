@@ -13,9 +13,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Handles a single client in the reactor server.
- * The reactor thread reads bytes from the channel, and the decoding and processing are done by a
- * worker thread. Messages to the client are queued by send and written when the channel is
- * ready for writing.
+ * The reactor thread reads bytes from the channel, and the decoding and
+ * processing are done by a worker thread. Messages to the client are queued by
+ * send and written when the channel is ready for writing.
  *
  * @param <T> the type of message handled
  */
@@ -34,6 +34,8 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     private final AtomicBoolean disconnectedNotified = new AtomicBoolean(false);
 
     /**
+     * Creates a handler for a newly accepted client.
+     *
      * @param reader       the encoder-decoder for this client
      * @param protocol     the protocol for this client
      * @param chan         the client's channel
@@ -57,10 +59,11 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     }
 
     /**
-     * Reads the available bytes from the channel. Called by the reactor thread.
+     * Reads the available bytes from the channel. Called by the reactor
+     * thread.
      *
-     * @return a task that decodes and processes the bytes read, or null if the client
-     *         disconnected (in which case the handler is closed)
+     * @return a task that decodes and processes the bytes read, or null if the
+     *         client disconnected (in which case the handler is closed)
      */
     public Runnable continueRead() {
         ByteBuffer buf = leaseBuffer();
@@ -106,15 +109,26 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     }
 
     /**
-     * Writes as much of the queued data as the channel accepts. Called by the reactor thread.
-     * Once the queue is empty, closes the connection if the protocol asked to terminate.
+     * Checks whether the client's channel is closed.
+     *
+     * @return true if the channel is closed
+     */
+    public boolean isClosed() {
+        return !chan.isOpen();
+    }
+
+    /**
+     * Writes as much of the queued data as the channel accepts. Called by the
+     * reactor thread. Once the queue is empty, closes the connection if the
+     * protocol asked to terminate.
      */
     public void continueWrite() {
         while (!writeQueue.isEmpty()) {
             try {
                 ByteBuffer top = writeQueue.peek();
                 chan.write(top);
-                if (top.hasRemaining()) return;
+                if (top.hasRemaining())
+                    return;
                 writeQueue.remove();
             } catch (IOException ex) {
                 close();
@@ -123,13 +137,16 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         }
 
         if (writeQueue.isEmpty()) {
-            if (protocol.shouldTerminate()) close();
-            else reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
+            if (protocol.shouldTerminate())
+                close();
+            else
+                reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
         }
     }
 
     /**
-     * Queues a message to the client and asks the reactor to write it when the channel is ready.
+     * Queues a message to the client and asks the reactor to write it when the
+     * channel is ready. May be called from any thread.
      *
      * @param msg the message to send
      */
@@ -140,11 +157,15 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     }
 
     /**
-     * @return a cleared buffer from the pool, or a new one if the pool is empty
+     * Takes a buffer from the pool, or allocates a new one if the pool is
+     * empty.
+     *
+     * @return a cleared buffer
      */
     private static ByteBuffer leaseBuffer() {
         ByteBuffer buff = BUFFER_POOL.poll();
-        if (buff == null) return ByteBuffer.allocateDirect(BUFFER_ALLOCATION_SIZE);
+        if (buff == null)
+            return ByteBuffer.allocateDirect(BUFFER_ALLOCATION_SIZE);
         buff.clear();
         return buff;
     }
