@@ -4,16 +4,19 @@ LDFLAGS := -lboost_system -lpthread
 
 all: StompEMIClient
 
-StompEMIClient: bin/ConnectionHandler.o bin/StompClient.o bin/event.o
-	g++ -o bin/StompEMIClient bin/ConnectionHandler.o bin/StompClient.o bin/event.o $(LDFLAGS)
+StompEMIClient: bin/ConnectionHandler.o bin/StompClient.o bin/StompProtocol.o bin/event.o
+	g++ -o bin/StompEMIClient bin/ConnectionHandler.o bin/StompClient.o bin/StompProtocol.o bin/event.o $(LDFLAGS)
 
-bin/ConnectionHandler.o: src/ConnectionHandler.cpp
+bin/ConnectionHandler.o: src/ConnectionHandler.cpp include/ConnectionHandler.h
 	g++ $(CFLAGS) -o bin/ConnectionHandler.o src/ConnectionHandler.cpp
 
-bin/event.o: src/event.cpp
+bin/event.o: src/event.cpp include/event.h
 	g++ $(CFLAGS) -o bin/event.o src/event.cpp
 
-bin/StompClient.o: src/StompClient.cpp
+bin/StompProtocol.o: src/StompProtocol.cpp include/StompProtocol.h include/event.h
+	g++ $(CFLAGS) -o bin/StompProtocol.o src/StompProtocol.cpp
+
+bin/StompClient.o: src/StompClient.cpp include/StompProtocol.h include/ConnectionHandler.h include/event.h
 	g++ $(CFLAGS) -o bin/StompClient.o src/StompClient.cpp
 
 .PHONY: clean
