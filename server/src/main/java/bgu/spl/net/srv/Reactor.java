@@ -1,7 +1,7 @@
 package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
-import bgu.spl.net.api.MessagingProtocol;
+import bgu.spl.net.api.StompMessagingProtocol;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -14,10 +14,17 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
+/**
+ * A server that handles all clients with a single selector thread.
+ * The selector thread accepts clients and does the socket I/O, while decoding and processing
+ * messages is done by a pool of worker threads.
+ *
+ * @param <T> the type of message handled
+ */
 public class Reactor<T> implements Server<T> {
 
     private final int port;
-    private final Supplier<MessagingProtocol<T>> protocolFactory;
+    private final Supplier<StompMessagingProtocol<T>> protocolFactory;
     private final Supplier<MessageEncoderDecoder<T>> readerFactory;
     private final ActorThreadPool pool;
     private final ConnectionsImpl<T> connections = new ConnectionsImpl<>();
@@ -27,10 +34,16 @@ public class Reactor<T> implements Server<T> {
     private Thread selectorThread;
     private final ConcurrentLinkedQueue<Runnable> selectorTasks = new ConcurrentLinkedQueue<>();
 
+    /**
+     * @param numThreads      the number of worker threads
+     * @param port            the port to listen on
+     * @param protocolFactory creates a new protocol for each client
+     * @param readerFactory   creates a new encoder-decoder for each client
+     */
     public Reactor(
             int numThreads,
             int port,
-            Supplier<MessagingProtocol<T>> protocolFactory,
+            Supplier<StompMessagingProtocol<T>> protocolFactory,
             Supplier<MessageEncoderDecoder<T>> readerFactory) {
 
         this.pool = new ActorThreadPool(numThreads);
@@ -39,11 +52,15 @@ public class Reactor<T> implements Server<T> {
         this.readerFactory = readerFactory;
     }
 
+    /**
+     * Runs the selector loop until the thread is interrupted or the selector is closed,
+     * then shuts down the worker pool.
+     */
     @Override
     public void serve() {
         selectorThread = Thread.currentThread();
         try (Selector selector = Selector.open();
-             ServerSocketChannel serverSock = ServerSocketChannel.open()) {
+                ServerSocketChannel serverSock = ServerSocketChannel.open()) {
 
             this.selector = selector;
             serverSock.bind(new InetSocketAddress(port));
@@ -76,6 +93,14 @@ public class Reactor<T> implements Server<T> {
         pool.shutdown();
     }
 
+    /**
+     * Changes the operations the selector waits for on a channel.
+     * Selection keys may only be changed by the selector thread, so a call from another thread
+     * is queued and the selector is woken up to run it.
+     *
+     * @param chan the client's channel
+     * @param ops  the new interest set
+     */
     void updateInterestedOps(SocketChannel chan, int ops) {
         final SelectionKey key = chan.keyFor(selector);
         if (key == null || !key.isValid()) {
@@ -94,12 +119,21 @@ public class Reactor<T> implements Server<T> {
             selector.wakeup();
         }
     }
-    
+
+    /**
+     * Accepts a new client, gives it a unique connection id, registers it in the connections
+     * and starts its protocol before registering it for reading, so start completes before
+     * any call to process.
+     *
+     * @param serverChan the server channel
+     * @param selector   the selector to register the client with
+     * @throws IOException if accepting or configuring the client's channel fails
+     */
     private void handleAccept(ServerSocketChannel serverChan, Selector selector) throws IOException {
         SocketChannel clientChan = serverChan.accept();
         clientChan.configureBlocking(false);
 
-        MessagingProtocol<T> protocol = protocolFactory.get();
+        StompMessagingProtocol<T> protocol = protocolFactory.get();
         int connectionId = connectionIds.getAndIncrement();
 
         NonBlockingConnectionHandler<T> handler = new NonBlockingConnectionHandler<>(
@@ -108,8 +142,7 @@ public class Reactor<T> implements Server<T> {
                 clientChan,
                 this,
                 connectionId,
-                connections
-        );
+                connections);
 
         connections.addClient(connectionId, handler);
         protocol.start(connectionId, connections);
@@ -117,6 +150,12 @@ public class Reactor<T> implements Server<T> {
         clientChan.register(selector, SelectionKey.OP_READ, handler);
     }
 
+    /**
+     * Handles a client's channel that is ready for reading and/or writing.
+     * Read data is processed by the worker pool; writing is done on this thread.
+     *
+     * @param key the client's selection key
+     */
     private void handleReadWrite(SelectionKey key) {
         @SuppressWarnings("unchecked")
         NonBlockingConnectionHandler<T> handler = (NonBlockingConnectionHandler<T>) key.attachment();
@@ -133,12 +172,20 @@ public class Reactor<T> implements Server<T> {
         }
     }
 
+    /**
+     * Runs the tasks queued for the selector thread.
+     */
     private void runSelectionThreadTasks() {
         while (!selectorTasks.isEmpty()) {
             selectorTasks.remove().run();
         }
     }
 
+    /**
+     * Closes the selector, which stops serve.
+     *
+     * @throws IOException if closing the selector fails
+     */
     @Override
     public void close() throws IOException {
         selector.close();

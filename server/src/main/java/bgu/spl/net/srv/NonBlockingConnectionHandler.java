@@ -1,7 +1,7 @@
 package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
-import bgu.spl.net.api.MessagingProtocol;
+import bgu.spl.net.api.StompMessagingProtocol;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -11,12 +11,20 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Handles a single client in the reactor server.
+ * The reactor thread reads bytes from the channel, and the decoding and processing are done by a
+ * worker thread. Messages to the client are queued by send and written when the channel is
+ * ready for writing.
+ *
+ * @param <T> the type of message handled
+ */
 public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
 
     private static final int BUFFER_ALLOCATION_SIZE = 1 << 13;
     private static final ConcurrentLinkedQueue<ByteBuffer> BUFFER_POOL = new ConcurrentLinkedQueue<>();
 
-    private final MessagingProtocol<T> protocol;
+    private final StompMessagingProtocol<T> protocol;
     private final MessageEncoderDecoder<T> encdec;
     private final Queue<ByteBuffer> writeQueue = new ConcurrentLinkedQueue<>();
     private final SocketChannel chan;
@@ -25,9 +33,17 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     private final int connectionId;
     private final AtomicBoolean disconnectedNotified = new AtomicBoolean(false);
 
+    /**
+     * @param reader       the encoder-decoder for this client
+     * @param protocol     the protocol for this client
+     * @param chan         the client's channel
+     * @param reactor      the reactor that owns this handler
+     * @param connectionId the connection id of this client
+     * @param connections  the server's active connections
+     */
     public NonBlockingConnectionHandler(
             MessageEncoderDecoder<T> reader,
-            MessagingProtocol<T> protocol,
+            StompMessagingProtocol<T> protocol,
             SocketChannel chan,
             Reactor<T> reactor,
             int connectionId,
@@ -40,6 +56,12 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         this.connections = connections;
     }
 
+    /**
+     * Reads the available bytes from the channel. Called by the reactor thread.
+     *
+     * @return a task that decodes and processes the bytes read, or null if the client
+     *         disconnected (in which case the handler is closed)
+     */
     public Runnable continueRead() {
         ByteBuffer buf = leaseBuffer();
         boolean success = false;
@@ -56,10 +78,7 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
                     while (buf.hasRemaining()) {
                         T nextMessage = encdec.decodeNextByte(buf.get());
                         if (nextMessage != null) {
-                            T response = protocol.process(nextMessage);
-                            if (response != null) {
-                                send(response);
-                            }
+                            protocol.process(nextMessage);
                         }
                     }
                 } finally {
@@ -73,6 +92,9 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         }
     }
 
+    /**
+     * Closes the channel and removes the client from the connections.
+     */
     @Override
     public void close() {
         try {
@@ -83,6 +105,10 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         }
     }
 
+    /**
+     * Writes as much of the queued data as the channel accepts. Called by the reactor thread.
+     * Once the queue is empty, closes the connection if the protocol asked to terminate.
+     */
     public void continueWrite() {
         while (!writeQueue.isEmpty()) {
             try {
@@ -102,12 +128,20 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         }
     }
 
+    /**
+     * Queues a message to the client and asks the reactor to write it when the channel is ready.
+     *
+     * @param msg the message to send
+     */
     @Override
     public void send(T msg) {
         writeQueue.add(ByteBuffer.wrap(encdec.encode(msg)));
         reactor.updateInterestedOps(chan, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
     }
 
+    /**
+     * @return a cleared buffer from the pool, or a new one if the pool is empty
+     */
     private static ByteBuffer leaseBuffer() {
         ByteBuffer buff = BUFFER_POOL.poll();
         if (buff == null) return ByteBuffer.allocateDirect(BUFFER_ALLOCATION_SIZE);
@@ -115,10 +149,18 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         return buff;
     }
 
+    /**
+     * Returns a buffer to the pool.
+     *
+     * @param buff the buffer to return
+     */
     private static void releaseBuffer(ByteBuffer buff) {
         BUFFER_POOL.add(buff);
     }
 
+    /**
+     * Removes the client from the connections, only on the first call.
+     */
     private void notifyDisconnectedOnce() {
         if (disconnectedNotified.compareAndSet(false, true)) {
             connections.disconnect(connectionId);
