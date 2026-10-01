@@ -128,13 +128,15 @@ destination:/police
 user:meni
 city:Liberty City
 event name:Grand Theft Auto
-date time:1762966800
+date time:1734980400
 general information:
 active:true
 forces_arrival_at_scene:false
 description:
-Pink Lampadati Felon with license plate "STOL3N1". White male 6'2 with black baseball hat.
+Pink Lampadati Felon with license plate "STOL3N1". White male 1.85 with black baseball hat.
 ```
+
+`date time` is sent as epoch seconds. The file's local date is converted with the machine's time zone; the value above is for UTC.
 
 The server forwards the body to every subscriber as a `MESSAGE` frame with `destination`, `subscription` (the subscriber's id), and a server-unique `message-id`.
 
@@ -142,20 +144,25 @@ The server forwards the body to every subscriber as a `MESSAGE` frame with `dest
 
 Writes the events this client has for `{user}` on `{channel_name}` into `{file}`. The file is created if missing, and overwritten if it exists. `{user}` may be the current user. This command does not send a frame.
 
-Events are sorted by `date_time`, then by `event_name`. The description summary is the first 27 characters. If the description is longer, it is followed by `...`. `date time` is the epoch converted to a string such as `29/12/24 22:15`.
+Events are sorted by `date_time`, then by `event_name`. The description summary is the first 27 characters. If the description is longer, it is followed by `...`. `date time` is the epoch converted back to a `DD/MM/YY HH:MM` string.
 
 ```text
 Channel police
 Stats:
 Total: 2
-active: 2
-forces arrival at scene: 1
+active: 1
+forces arrival at scene: 0
 Event Reports:
 Report_1:
 city: Liberty City
-date time: 29/12/24 22:15
+date time: 23/12/24 19:00
 event name: Grand Theft Auto
 summary: Pink Lampadati Felon with l...
+Report_2:
+city: Los Alamos
+date time: 01/01/25 03:00
+event name: Vandalism
+summary: Multiple cars were spray-pa...
 ```
 
 `Total` is the number of reports. `active` counts reports whose `active` field is true. `forces arrival at scene` counts reports whose `forces_arrival_at_scene` field is true.
@@ -181,8 +188,8 @@ receipt:113
     {
       "event_name": "Grand Theft Auto",
       "city": "Liberty City",
-      "date_time": 1762966800,
-      "description": "Pink Lampadati Felon with license plate \"STOL3N1\".",
+      "date_time": "23/12/24 19:00",
+      "description": "Pink Lampadati Felon with license plate \"STOL3N1\". White male 1.85 with black baseball hat.",
       "general_information": {
         "active": true,
         "forces_arrival_at_scene": false
@@ -192,7 +199,7 @@ receipt:113
 }
 ```
 
-`date_time` is a Unix epoch in seconds. Events in the file are in time order. Clients are expected to join the channel before reporting starts.
+`date_time` is a local date (`DD/MM/YY HH:MM` or `DD/MM/YYYY HH:MM`, with a space or `_` between date and time), or a Unix epoch in seconds. Events in the file are in time order. Clients are expected to join the channel before reporting starts.
 
 ## Session
 
@@ -219,7 +226,7 @@ logout
 | `CONNECTED` | `CONNECT` succeeded. Header: `version:1.2`. Empty body. |
 | `MESSAGE` | A `SEND` is delivered to a subscriber. |
 | `RECEIPT` | A client frame that included `receipt` was processed. Header: `receipt-id`. |
-| `ERROR` | The frame is malformed, the user is already logged in, the password is wrong, the client is not subscribed to the `SEND` destination, or the subscription cannot be created. The server then closes the connection. |
+| `ERROR` | The frame is malformed or has an unknown command, the user is already logged in, the password is wrong, the subscription id or channel is already subscribed, the `UNSUBSCRIBE` id is unknown, or the client is not subscribed to the `SEND` destination. The server then closes the connection. |
 
 `receipt` may be added to any client frame. `DISCONNECT` must include it. A `RECEIPT` means that frame and every earlier frame were received. After `DISCONNECT`, the client closes the socket only once the matching `RECEIPT` arrives.
 
