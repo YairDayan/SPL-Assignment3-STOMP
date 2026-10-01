@@ -18,6 +18,9 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.6.1</version>
+                <configuration>
+                    <mainClass>bgu.spl.net.impl.stomp.StompServer</mainClass>
+                </configuration>
             </plugin>
         </plugins>
     </build>
