@@ -30,10 +30,10 @@ public class StompMessage {
                 bodyBuilder.append(lines[i]).append("\n");
             } else {
                 String[] header = lines[i].split(":", 2);
-                if (header.length < 2 || header[0].isEmpty()) {
+                if (header.length < 2 || header[0].trim().isEmpty()) {
                     throw new IllegalArgumentException("Malformed header");
                 }
-                this.headers.put(header[0], header[1]);
+                this.headers.put(header[0].trim(), header[1].trim());
             }
         }
         this.body = bodyBuilder.toString();

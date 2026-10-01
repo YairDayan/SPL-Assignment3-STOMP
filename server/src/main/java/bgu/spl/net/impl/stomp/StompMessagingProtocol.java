@@ -164,11 +164,10 @@ public class StompMessagingProtocol implements MessagingProtocol<String> {
 
         ConnectionsImpl.LoginResult result = connectionsImpl.loginUser(username, password, connectionId);
         if (result == ConnectionsImpl.LoginResult.CONNECTED) {
-            String connectedFrame = "CONNECTED\nversion:1.2\n\n\u0000";
             if (receipt != null) {
-                return connectedFrame + "RECEIPT\nreceipt-id:" + receipt + "\n\n\u0000";
+                connectionsImpl.send(connectionId, "RECEIPT\nreceipt-id:" + receipt + "\n\n\u0000");
             }
-            return connectedFrame;
+            return "CONNECTED\nversion:1.2\n\n\u0000";
         }
 
         shouldTerminate = true;
