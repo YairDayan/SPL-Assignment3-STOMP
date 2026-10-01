@@ -114,3 +114,10 @@ hs_err_pid*
 server/target/
 client/bin/
 *.o
+
+# JVM attach files
+.attach_pid*
+
+# Course materials (starter template and instructions)
+עבודה 3 - קבצי מקור/
+*.pdf
