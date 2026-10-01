@@ -6,11 +6,9 @@
 #include <vector>
 #include <sstream>
 #include <cstring>
-#include <algorithm>
-#include <cctype>
 #include <ctime>
+#include <iomanip>
 #include <stdexcept>
-
 
 using namespace std;
 using json = nlohmann::json;
@@ -26,10 +24,22 @@ Event::~Event()
 {
 }
 
-static void split_str(const std::string& input, char delim, std::vector<std::string>& out) {
-    std::stringstream ss(input);
-    std::string part;
-    while (std::getline(ss, part, delim)) out.push_back(part);
+/**
+ * Removes leading and trailing whitespace.
+ *
+ * @param s the string to trim
+ * @return a trimmed copy of s
+ */
+static std::string trim_copy(const std::string& s) {
+    size_t start = 0;
+    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) start++;
+    size_t end = s.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) end--;
+    return s.substr(start, end - start);
+}
+
+void Event::setChannelName(const std::string &channel_name) {
+    this->channel_name = channel_name;
 }
 
 void Event::setEventOwnerUser(std::string setEventOwnerUser) {
@@ -76,90 +86,72 @@ Event::Event(const std::string &frame_body): channel_name(""), city(""),
 {
     stringstream ss(frame_body);
     string line;
-    string eventDescription;
-    map<string, string> general_information_from_string;
+    // Set after the "general information:" line; the following key:value lines belong to general_information.
     bool inGeneralInformation = false;
-    while(getline(ss,line,'\n')){
-        vector<string> lineArgs;
-        if(line.find(':') != string::npos) {
-            split_str(line, ':', lineArgs);
-            string key = lineArgs.at(0);
-            string val;
-            if(lineArgs.size() == 2) {
-                val = lineArgs.at(1);
-            }
-            if(key == "user") {
-                eventOwnerUser = val;
-            }
-            if(key == "channel name") {
-                channel_name = val;
-            }
-            if(key == "city") {
-                city = val;
-            }
-            else if(key == "event name") {
-                name = val;
-            }
-            else if(key == "date time") {
-                date_time = std::stoi(val);
-            }
-            else if(key == "general information") {
-                inGeneralInformation = true;
-                continue;
-            }
-            else if(key == "description") {
-                while(getline(ss,line,'\n')) {
-                    eventDescription += line + "\n";
-                }
-                description = eventDescription;
-            }
+    // Set after the "description:" line; all the following lines are the description.
+    bool inDescription = false;
+    while (getline(ss, line, '\n')) {
+        if (line.empty()) continue;
 
-            if(inGeneralInformation) {
-                general_information_from_string[key.substr(1)] = val;
-            }
+        if (line == "general information:") {
+            inGeneralInformation = true;
+            continue;
         }
+        if (line == "description:") {
+            inDescription = true;
+            inGeneralInformation = false;
+            continue;
+        }
+        if (inDescription) {
+            if (!description.empty()) description += "\n";
+            description += line;
+            continue;
+        }
+
+        // Split at the first ':' only, so values may contain ':'.
+        size_t colon = line.find(':');
+        if (colon == string::npos) continue;
+        string key = trim_copy(line.substr(0, colon));
+        string val = trim_copy(line.substr(colon + 1));
+
+        if (key == "user") eventOwnerUser = val;
+        else if (key == "channel name") channel_name = val;
+        else if (key == "city") city = val;
+        else if (key == "event name") name = val;
+        else if (key == "date time") {
+            try { date_time = std::stoi(val); } catch (...) { date_time = 0; }
+        }
+        else if (inGeneralInformation) general_information[key] = val;
     }
-    general_information = general_information_from_string;
 }
 
-static std::string trim_copy(const std::string& s) {
-    size_t start = 0;
-    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) start++;
-    size_t end = s.size();
-    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) end--;
-    return s.substr(start, end - start);
-}
-static bool parseDateTimeFlexible(const std::string& raw, int& outEpoch) {
-    std::string s = trim_copy(raw);
-    if (s.empty()) return false;
-    // Case 1: already epoch (e.g. "1762966800")
-    bool allDigits = std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isdigit(c); });
-    if (allDigits) {
-        try {
-            outEpoch = std::stoi(s);
-            return true;
-        } catch (...) {
-            return false;
-        }
-    }
-    // Case 2: assignment file format "DD/MM/YY HH:MM" or "DD/MM/YYYY HH:MM"
+/**
+ * Converts a date_time string from the events file to epoch seconds.
+ * Accepted formats: epoch digits ("1762966800"), or a local date "DD/MM/YY HH:MM" / "DD/MM/YYYY HH:MM",
+ * where the date and time may be separated by a space or '_'.
+ *
+ * @param s the date string
+ * @return the time in epoch seconds
+ * @throws std::runtime_error if s is in none of the accepted formats
+ */
+static int dateStringToEpoch(const std::string& s) {
+    if (!s.empty() && std::all_of(s.begin(), s.end(), [](unsigned char c) { return std::isdigit(c); }))
+        return std::stoi(s);
+
     int dd = 0, mm = 0, yy = 0, hh = 0, min = 0;
-    if (std::sscanf(s.c_str(), "%d/%d/%d %d:%d", &dd, &mm, &yy, &hh, &min) != 5) {
-        return false;
-    }
-    if (yy < 100) yy += 2000;
-    std::tm tmVal{};
-    tmVal.tm_mday = dd;
-    tmVal.tm_mon = mm - 1;
-    tmVal.tm_year = yy - 1900;
-    tmVal.tm_hour = hh;
-    tmVal.tm_min = min;
-    tmVal.tm_sec = 0;
-    tmVal.tm_isdst = -1; // let system determine DST
-    std::time_t t = std::mktime(&tmVal);
-    if (t == static_cast<std::time_t>(-1)) return false;
-    outEpoch = static_cast<int>(t);
-    return true;
+    if (std::sscanf(s.c_str(), "%d/%d/%d%*[ _]%d:%d", &dd, &mm, &yy, &hh, &min) != 5)
+        throw std::runtime_error("Invalid date_time: " + s);
+    if (yy < 100)
+        yy += 2000;
+
+    std::tm tm{};
+    tm.tm_mday = dd;
+    tm.tm_mon = mm - 1;
+    tm.tm_year = yy - 1900;
+    tm.tm_hour = hh;
+    tm.tm_min = min;
+    tm.tm_isdst = -1; // let mktime determine daylight saving time
+    return static_cast<int>(std::mktime(&tm));
 }
 
 names_and_events parseEventsFile(std::string json_path)
@@ -175,19 +167,13 @@ names_and_events parseEventsFile(std::string json_path)
     {
         std::string name = event["event_name"];
         std::string city = event["city"];
-        int date_time = 0;
-        if (event["date_time"].is_number_integer()) {
-            date_time = event["date_time"].get<int>();
-        } else if (event["date_time"].is_string()) {
-            std::string dt = event["date_time"].get<std::string>();
-            if (!parseDateTimeFlexible(dt, date_time)) {
-                throw std::runtime_error("Invalid date_time format in events file: " + dt);
-            }
-        } else {
-            throw std::runtime_error("Unsupported date_time type in events file");
-        }
+        // date_time may appear in the file as a JSON number or as a string.
+        int date_time = event["date_time"].is_string()
+                            ? dateStringToEpoch(event["date_time"].get<std::string>())
+                            : event["date_time"].get<int>();
         std::string description = event["description"];
         std::map<std::string, std::string> general_information;
+        // Non-string values (the booleans) are stored as their JSON text: "true" / "false".
         for (auto &update : event["general_information"].items())
         {
             if (update.value().is_string())
