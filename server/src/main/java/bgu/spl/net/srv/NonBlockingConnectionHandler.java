@@ -62,8 +62,10 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
      * Reads the available bytes from the channel. Called by the reactor
      * thread.
      *
-     * @return a task that decodes and processes the bytes read, or null if the
-     *         client disconnected (in which case the handler is closed)
+     * @return a task that decodes and processes the bytes read; if the client
+     *         disconnected, the channel is closed and the returned task removes
+     *         the client from the connections, so frames that were already read
+     *         are processed first
      */
     public Runnable continueRead() {
         ByteBuffer buf = leaseBuffer();
@@ -71,7 +73,6 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         try {
             success = chan.read(buf) != -1;
         } catch (IOException ignored) {
-            close();
         }
 
         if (success) {
@@ -90,8 +91,8 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
             };
         } else {
             releaseBuffer(buf);
-            close();
-            return null;
+            closeChannel();
+            return this::notifyDisconnectedOnce;
         }
     }
 
@@ -100,11 +101,17 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
      */
     @Override
     public void close() {
+        closeChannel();
+        notifyDisconnectedOnce();
+    }
+
+    /**
+     * Closes the channel without removing the client from the connections.
+     */
+    private void closeChannel() {
         try {
             chan.close();
         } catch (IOException ignored) {
-        } finally {
-            notifyDisconnectedOnce();
         }
     }
 

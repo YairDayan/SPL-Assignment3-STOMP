@@ -251,7 +251,7 @@ StompProtocol::buildReportFrames(const names_and_events &nae) {
         ev.get_general_information();
     for (std::map<std::string, std::string>::const_iterator git = info.begin();
          git != info.end(); ++git) {
-      body += git->first + ":" + git->second + "\n";
+      body += "\t" + git->first + ":" + git->second + "\n";
     }
     body += "description:\n";
     body += ev.get_description();
@@ -328,14 +328,15 @@ bool StompProtocol::writeSummary(const std::string &channel,
   ofs << "Total: " << events.size() << "\n";
   ofs << "active: " << activeCnt << "\n";
   ofs << "forces arrival at scene: " << forcesCnt << "\n";
-  ofs << "Event Reports:\n";
+  ofs << "\nEvent Reports:\n";
 
   for (size_t i = 0; i < events.size(); i++) {
-    ofs << "Report_" << (i + 1) << ":\n";
-    ofs << "city: " << events[i].get_city() << "\n";
-    ofs << "date time: " << epochToDateTime(events[i].get_date_time()) << "\n";
-    ofs << "event name: " << events[i].get_name() << "\n";
-    ofs << "summary: " << summarizeDescription(events[i].get_description())
+    ofs << "\nReport_" << (i + 1) << ":\n";
+    ofs << "\tcity: " << events[i].get_city() << "\n";
+    ofs << "\tdate time: " << epochToDateTime(events[i].get_date_time())
+        << "\n";
+    ofs << "\tevent name: " << events[i].get_name() << "\n";
+    ofs << "\tsummary: " << summarizeDescription(events[i].get_description())
         << "\n";
   }
 

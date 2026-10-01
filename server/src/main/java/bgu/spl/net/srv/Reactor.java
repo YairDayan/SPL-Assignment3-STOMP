@@ -130,8 +130,9 @@ public class Reactor<T> implements Server<T> {
 
     /**
      * Accepts a new client, gives it a unique connection id, adds it to the
-     * connections and starts its protocol before registering it for reading,
-     * so start completes before any call to process.
+     * connections and registers it for reading. The protocol's start is
+     * submitted to the worker pool as the client's first task, so it does not
+     * run on the selector thread and completes before any call to process.
      *
      * @param serverChan the server channel
      * @param selector   the selector to register the client with
@@ -153,7 +154,7 @@ public class Reactor<T> implements Server<T> {
                 connections);
 
         connections.addClient(connectionId, handler);
-        protocol.start(connectionId, connections);
+        pool.submit(handler, () -> protocol.start(connectionId, connections));
 
         clientChan.register(selector, SelectionKey.OP_READ, handler);
     }

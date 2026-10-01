@@ -130,8 +130,8 @@ city:Liberty City
 event name:Grand Theft Auto
 date time:1734980400
 general information:
-active:true
-forces_arrival_at_scene:false
+	active:true
+	forces_arrival_at_scene:false
 description:
 Pink Lampadati Felon with license plate "STOL3N1". White male 1.85 with black baseball hat.
 ```
@@ -152,17 +152,20 @@ Stats:
 Total: 2
 active: 1
 forces arrival at scene: 0
+
 Event Reports:
+
 Report_1:
-city: Liberty City
-date time: 23/12/24 19:00
-event name: Grand Theft Auto
-summary: Pink Lampadati Felon with l...
+	city: Liberty City
+	date time: 23/12/24 19:00
+	event name: Grand Theft Auto
+	summary: Pink Lampadati Felon with l...
+
 Report_2:
-city: Los Alamos
-date time: 01/01/25 03:00
-event name: Vandalism
-summary: Multiple cars were spray-pa...
+	city: Los Alamos
+	date time: 01/01/25 03:00
+	event name: Vandalism
+	summary: Multiple cars were spray-pa...
 ```
 
 `Total` is the number of reports. `active` counts reports whose `active` field is true. `forces arrival at scene` counts reports whose `forces_arrival_at_scene` field is true.

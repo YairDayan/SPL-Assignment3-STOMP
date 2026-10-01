@@ -51,8 +51,9 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
 
     /**
      * Parses a frame received from the client and handles it according to its
-     * command. A malformed frame or an unknown command results in an ERROR
-     * frame and closing the connection.
+     * command. A malformed frame, an unknown command, or any command other
+     * than CONNECT sent before the client logged in results in an ERROR frame
+     * and closing the connection.
      *
      * @param message the raw frame, without the terminating '\0'
      */
@@ -63,6 +64,11 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             stompMessage = new StompMessage(message);
         } catch (IllegalArgumentException e) {
             sendErrorAndClose("Malformed frame", null);
+            return;
+        }
+
+        if (loggedInUser == null && !"CONNECT".equals(stompMessage.getCommand())) {
+            sendErrorAndClose("User is not logged in", stompMessage.getHeader("receipt"));
             return;
         }
 
