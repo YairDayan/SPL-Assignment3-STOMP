@@ -24,6 +24,7 @@ bool ConnectionHandler::getBytes(char bytes[], unsigned int bytesToRead) {
     size_t tmp = 0;
     boost::system::error_code error;
     try {
+        // read_some may return fewer bytes than requested, so keep reading until all bytes arrived.
         while (!error && bytesToRead > tmp) {
             tmp += socket_.read_some(boost::asio::buffer(bytes + tmp, bytesToRead - tmp), error);
         }
@@ -39,6 +40,7 @@ bool ConnectionHandler::sendBytes(const char bytes[], int bytesToWrite) {
     int tmp = 0;
     boost::system::error_code error;
     try {
+        // write_some may send fewer bytes than requested, so keep writing until all bytes are sent.
         while (!error && bytesToWrite > tmp) {
             tmp += socket_.write_some(boost::asio::buffer(bytes + tmp, bytesToWrite - tmp), error);
         }
@@ -61,6 +63,7 @@ bool ConnectionHandler::sendLine(std::string &line) {
 bool ConnectionHandler::getFrameAscii(std::string &frame, char delimiter) {
     char ch;
     try {
+        // Read one byte at a time, so that no bytes of the next frame are consumed.
         do {
             if (!getBytes(&ch, 1)) {
                 return false;
@@ -81,6 +84,9 @@ bool ConnectionHandler::sendFrameAscii(const std::string &frame, char delimiter)
 }
 
 void ConnectionHandler::close() {
+    // shutdown wakes up a thread blocked in a read on this socket; close alone does not on Linux.
+    boost::system::error_code ignored;
+    socket_.shutdown(tcp::socket::shutdown_both, ignored);
     try {
         socket_.close();
     } catch (...) {}
