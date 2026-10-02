@@ -163,8 +163,9 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
 
     /**
      * Subscribes the client to a channel, creating the channel if it does not
-     * exist yet. Replies with an ERROR if a header is missing or the client is
-     * already subscribed.
+     * exist yet. Replies with an ERROR if a header is missing, the client is
+     * already subscribed to the channel, or it already uses this subscription
+     * id.
      *
      * @param stompMessage the SUBSCRIBE frame
      */

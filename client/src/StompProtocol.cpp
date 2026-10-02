@@ -35,6 +35,8 @@ static std::string trim(const std::string &s) {
 }
 
 /**
+ * Checks whether a string starts with a prefix.
+ *
  * @param s    the string to check
  * @param pref the prefix
  * @return true if s starts with pref

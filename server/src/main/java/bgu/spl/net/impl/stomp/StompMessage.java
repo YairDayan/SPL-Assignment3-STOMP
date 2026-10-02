@@ -12,9 +12,9 @@ public class StompMessage {
     private String body;
 
     /**
-     * Parses a raw frame. The first line is the command, the lines up to the
-     * first blank line are headers, and everything after the blank line is the
-     * body, kept as is.
+     * Parses a raw frame. Carriage returns are removed first. The first line
+     * is the command, the lines up to the first blank line are headers, and
+     * everything after the blank line is the body.
      *
      * @param message the raw frame, without the terminating '\0'
      * @throws IllegalArgumentException if the frame is empty, has no command or

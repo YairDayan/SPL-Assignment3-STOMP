@@ -229,7 +229,7 @@ logout
 | `CONNECTED` | `CONNECT` succeeded. Header: `version:1.2`. Empty body. |
 | `MESSAGE` | A `SEND` is delivered to a subscriber. |
 | `RECEIPT` | A client frame that included `receipt` was processed. Header: `receipt-id`. |
-| `ERROR` | The frame is malformed or has an unknown command, the user is already logged in, the password is wrong, the subscription id or channel is already subscribed, the `UNSUBSCRIBE` id is unknown, or the client is not subscribed to the `SEND` destination. The server then closes the connection. |
+| `ERROR` | The frame is malformed or has an unknown command, a frame other than `CONNECT` is sent before login, the user is already logged in, the password is wrong, the client is already subscribed to the channel or already uses the subscription id, the `UNSUBSCRIBE` id is unknown, or the client is not subscribed to the `SEND` destination. The server then closes the connection. |
 
 `receipt` may be added to any client frame. `DISCONNECT` must include it. A `RECEIPT` means that frame and every earlier frame were received. After `DISCONNECT`, the client closes the socket only once the matching `RECEIPT` arrives.
 

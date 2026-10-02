@@ -52,46 +52,64 @@ public:
   virtual ~Event();
 
   /**
+   * Sets the channel the event is reported to.
+   *
    * @param channel_name channel the event is reported to
    */
   void setChannelName(const std::string &channel_name);
 
   /**
+   * Sets the user who reported the event.
+   *
    * @param setEventOwnerUser name of the user who reported the event
    */
   void setEventOwnerUser(std::string setEventOwnerUser);
 
   /**
+   * Returns the user who reported the event.
+   *
    * @return name of the user who reported the event
    */
   const std::string &getEventOwnerUser() const;
 
   /**
+   * Returns the channel the event is reported to.
+   *
    * @return channel the event is reported to
    */
   const std::string &get_channel_name() const;
 
   /**
+   * Returns the city of the event.
+   *
    * @return city of the event
    */
   const std::string &get_city() const;
 
   /**
+   * Returns the description of the event.
+   *
    * @return description of the event
    */
   const std::string &get_description() const;
 
   /**
+   * Returns the name of the event.
+   *
    * @return name of the event
    */
   const std::string &get_name() const;
 
   /**
+   * Returns the time of the event.
+   *
    * @return time of the event in seconds (epoch)
    */
   int get_date_time() const;
 
   /**
+   * Returns the general information of the event.
+   *
    * @return map of "active" and "forces_arrival_at_scene" to "true"/"false"
    */
   const std::map<std::string, std::string> &get_general_information() const;
